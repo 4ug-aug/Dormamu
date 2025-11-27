@@ -1,13 +1,13 @@
-import { useState } from "react";
-import { Plus, FolderPlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useProjects } from "@/hooks/useProjects";
-import { useTasks } from "@/hooks/useTasks";
-import TaskCard from "@/components/TaskCard";
 import CreateProjectDialog from "@/components/CreateProjectDialog";
 import CreateTaskDialog from "@/components/CreateTaskDialog";
 import ProjectMenu from "@/components/ProjectMenu";
+import TaskCard from "@/components/TaskCard";
+import { Button } from "@/components/ui/button";
+import { useProjects } from "@/hooks/useProjects";
+import { useTasks } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
+import { FolderPlus, Plus } from "lucide-react";
+import { useState } from "react";
 
 export default function Home() {
   const { projects, isLoading: projectsLoading } = useProjects();
@@ -120,6 +120,7 @@ export default function Home() {
             onClick={() => setCreateProjectOpen(true)}
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-8",
+              "hover:bg-secondary hover:border-muted-foreground cursor-pointer",
               "text-muted-foreground transition-colors hover:border-muted-foreground hover:text-foreground"
             )}
           >

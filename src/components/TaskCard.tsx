@@ -1,6 +1,4 @@
-import { useState } from "react";
-import { Play, Square, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import EditTaskDialog from "@/components/EditTaskDialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,12 +6,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { useTasks } from "@/hooks/useTasks";
+import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { useTodayEntries } from "@/hooks/useTodayEntries";
-import { TaskWithProject } from "@/stores/timeStore";
-import EditTaskDialog from "@/components/EditTaskDialog";
 import { cn } from "@/lib/utils";
+import { TaskWithProject } from "@/stores/timeStore";
+import { MoreHorizontal, Pencil, Play, Square, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 interface TaskCardProps {
   task: TaskWithProject;
@@ -24,7 +23,7 @@ export default function TaskCard({ task }: TaskCardProps) {
   const { deleteTask } = useTasks();
   const { fetchTodayEntries } = useTodayEntries();
   const [editOpen, setEditOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
 
   const isActiveTask = isTracking && activeEntry?.task_id === task.id;
 
@@ -52,19 +51,28 @@ export default function TaskCard({ task }: TaskCardProps) {
 
   return (
     <>
-      <Card
+      <div
+        role="button"
+        tabIndex={0}
         className={cn(
-          "group relative cursor-pointer transition-all duration-200",
-          "hover:border-muted-foreground/50",
-          isActiveTask && "border-primary/50 bg-secondary"
+          "relative border-2 border-border bg-card p-4 transition-all duration-75 select-none cursor-pointer",
+          "shadow-md hover:shadow-sm",
+          isPressed && "shadow-none translate-x-[2px] translate-y-[2px]",
+          isActiveTask && "bg-accent shadow-none translate-x-[2px] translate-y-[2px]"
         )}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseDown={() => setIsPressed(true)}
+        onMouseUp={() => setIsPressed(false)}
+        onMouseLeave={() => setIsPressed(false)}
         onClick={handleToggleTracking}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            handleToggleTracking();
+          }
+        }}
       >
-        {/* Project color indicator */}
+        {/* Project color indicator - left border */}
         <div
-          className="absolute left-0 top-0 h-full w-1 rounded-l-xl"
+          className="absolute left-0 top-0 h-full w-1"
           style={{ backgroundColor: task.project_color }}
         />
 
@@ -84,17 +92,11 @@ export default function TaskCard({ task }: TaskCardProps) {
           </div>
         )}
 
-        <CardContent className="flex items-center gap-3 p-4 pl-5">
+        <div className="flex items-center gap-3 pl-2">
           {/* Play/Stop button */}
           <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "h-10 w-10 shrink-0 rounded-full transition-all",
-              isActiveTask
-                ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                : "bg-secondary hover:bg-secondary/80"
-            )}
+            variant={isActiveTask ? "destructive" : "outline"}
+            size="icon-sm"
             onClick={(e) => {
               e.stopPropagation();
               handleToggleTracking();
@@ -109,8 +111,12 @@ export default function TaskCard({ task }: TaskCardProps) {
 
           {/* Task info */}
           <div className="min-w-0 flex-1">
-            <h3 className="truncate font-medium">{task.name}</h3>
-            <p className="text-xs text-muted-foreground">{task.project_name}</p>
+            <h3 className="truncate font-bold uppercase tracking-wide">
+              {task.name}
+            </h3>
+            <p className="text-xs text-muted-foreground font-mono">
+              {task.project_name}
+            </p>
           </div>
 
           {/* Actions menu */}
@@ -118,23 +124,27 @@ export default function TaskCard({ task }: TaskCardProps) {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-8 w-8 shrink-0 transition-opacity",
-                  isHovered || isActiveTask ? "opacity-100" : "opacity-0"
-                )}
+                size="icon-sm"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setEditOpen(true)}>
+            <DropdownMenuContent align="end" className="border-2 border-border shadow-md">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditOpen(true);
+                }}
+              >
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={handleDelete}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete();
+                }}
                 className="text-destructive focus:text-destructive"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -142,8 +152,8 @@ export default function TaskCard({ task }: TaskCardProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <EditTaskDialog
         open={editOpen}
@@ -153,4 +163,3 @@ export default function TaskCard({ task }: TaskCardProps) {
     </>
   );
 }
-

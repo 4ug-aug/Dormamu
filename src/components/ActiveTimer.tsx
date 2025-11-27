@@ -2,7 +2,6 @@ import { Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { useTodayEntries } from "@/hooks/useTodayEntries";
-import { cn } from "@/lib/utils";
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -21,7 +20,7 @@ export default function ActiveTimer() {
 
   if (!isTracking || !activeEntry) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono uppercase">
         <span>Not tracking</span>
       </div>
     );
@@ -33,16 +32,16 @@ export default function ActiveTimer() {
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-4">
       {/* Tracking indicator */}
       <div className="flex items-center gap-2">
-        <div className="relative flex h-2 w-2">
+        <div className="relative flex h-3 w-3">
           <span
-            className="tracking-pulse absolute inline-flex h-full w-full rounded-full opacity-75"
+            className="tracking-pulse absolute inline-flex h-full w-full"
             style={{ backgroundColor: activeEntry.project_color }}
           />
           <span
-            className="relative inline-flex h-2 w-2 rounded-full"
+            className="relative inline-flex h-3 w-3"
             style={{ backgroundColor: activeEntry.project_color }}
           />
         </div>
@@ -50,32 +49,27 @@ export default function ActiveTimer() {
 
       {/* Task info */}
       <div className="flex items-center gap-2">
-        <span className="max-w-[150px] truncate text-sm font-medium">
+        <span className="max-w-[150px] truncate text-sm font-bold uppercase tracking-wide">
           {activeEntry.task_name}
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground font-mono">
           {activeEntry.project_name}
         </span>
       </div>
 
       {/* Timer display */}
-      <div className="font-mono text-lg tabular-nums">
+      <div className="font-mono text-lg font-bold tabular-nums border-2 border-border px-3 py-1 bg-card shadow-sm">
         {formatTime(elapsedTime)}
       </div>
 
       {/* Stop button */}
       <Button
-        variant="ghost"
-        size="icon"
-        className={cn(
-          "h-8 w-8 rounded-full",
-          "bg-destructive/10 text-destructive hover:bg-destructive/20"
-        )}
+        variant="destructive"
+        size="icon-sm"
         onClick={handleStop}
       >
-        <Square className="h-3.5 w-3.5 fill-current" />
+        <Square className="h-4 w-4 fill-current" />
       </Button>
     </div>
   );
 }
-

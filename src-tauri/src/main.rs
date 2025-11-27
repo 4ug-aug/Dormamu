@@ -461,6 +461,50 @@ fn delete_time_entry(state: State<DbState>, id: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn update_time_entry(
+    state: State<DbState>,
+    id: String,
+    start_time: i64,
+    end_time: Option<i64>,
+) -> Result<TimeEntryWithDetails, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "UPDATE time_entries SET start_time = ?1, end_time = ?2 WHERE id = ?3",
+        (&start_time, &end_time, &id),
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Return the updated entry with details
+    let mut stmt = conn
+        .prepare(
+            "SELECT te.id, te.task_id, t.name, t.project_id, p.name, p.color, te.start_time, te.end_time
+             FROM time_entries te
+             JOIN tasks t ON te.task_id = t.id
+             JOIN projects p ON t.project_id = p.id
+             WHERE te.id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let entry = stmt
+        .query_row([&id], |row| {
+            Ok(TimeEntryWithDetails {
+                id: row.get(0)?,
+                task_id: row.get(1)?,
+                task_name: row.get(2)?,
+                project_id: row.get(3)?,
+                project_name: row.get(4)?,
+                project_color: row.get(5)?,
+                start_time: row.get(6)?,
+                end_time: row.get(7)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    Ok(entry)
+}
+
 // Dashboard commands
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DashboardStats {
@@ -672,6 +716,7 @@ fn main() {
             get_active_entry,
             get_today_entries,
             delete_time_entry,
+            update_time_entry,
             get_stats,
             get_all_entries,
             get_entries_by_range,

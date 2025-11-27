@@ -1,10 +1,13 @@
-import { Clock, Trash2 } from "lucide-react";
+import EditTimeEntryDialog from "@/components/EditTimeEntryDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useTodayEntries } from "@/hooks/useTodayEntries";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
-import { toast } from "sonner";
+import { useTodayEntries } from "@/hooks/useTodayEntries";
 import { cn } from "@/lib/utils";
+import { TimeEntryWithDetails } from "@/stores/timeStore";
+import { Clock, Pencil, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -42,9 +45,10 @@ function formatTimeRange(startTime: number, endTime: number | null): string {
 }
 
 export default function Today() {
-  const { entriesByTask, totalTimeToday, isLoading, deleteTimeEntry } =
+  const { entriesByTask, totalTimeToday, isLoading, deleteTimeEntry, fetchTodayEntries } =
     useTodayEntries();
   const { isTracking } = useTimeTracking();
+  const [editEntry, setEditEntry] = useState<TimeEntryWithDetails | null>(null);
 
   const handleDeleteEntry = async (id: string) => {
     try {
@@ -69,17 +73,17 @@ export default function Today() {
     <div className="p-6">
       {/* Header with total time */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold">Today</h1>
+        <h1 className="text-2xl font-bold uppercase tracking-wide">Today</h1>
         <div className="mt-2 flex items-center gap-3 text-muted-foreground">
           <Clock className="h-5 w-5" />
           <span className="text-lg">
             Total:{" "}
-            <span className="font-mono font-semibold text-foreground">
+            <span className="font-mono font-bold text-foreground">
               {formatTime(totalTimeToday)}
             </span>
           </span>
           {isTracking && (
-            <span className="text-xs text-muted-foreground">(tracking)</span>
+            <span className="text-xs text-muted-foreground uppercase">(tracking)</span>
           )}
         </div>
       </div>
@@ -87,11 +91,11 @@ export default function Today() {
       {/* Empty state */}
       {entriesByTask.length === 0 && (
         <div className="flex h-[calc(100vh-14rem)] flex-col items-center justify-center gap-4 text-center">
-          <div className="rounded-full bg-secondary p-4">
+          <div className="border-2 border-border p-4 shadow-md">
             <Clock className="h-8 w-8 text-muted-foreground" />
           </div>
           <div>
-            <h2 className="text-lg font-medium">No time tracked today</h2>
+            <h2 className="text-lg font-bold uppercase">No time tracked today</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Start tracking a task to see your progress here
             </p>
@@ -111,22 +115,22 @@ export default function Today() {
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <div
-                        className="h-2 w-2 rounded-full"
+                        className="h-3 w-3"
                         style={{ backgroundColor: taskGroup.project_color }}
                       />
-                      <span className="font-medium">{taskGroup.task_name}</span>
-                      <span className="text-muted-foreground">
+                      <span className="font-bold uppercase">{taskGroup.task_name}</span>
+                      <span className="text-muted-foreground font-mono text-xs">
                         {taskGroup.project_name}
                       </span>
                     </div>
-                    <span className="font-mono">
+                    <span className="font-mono font-bold">
                       {formatTime(taskGroup.totalTime)}
                     </span>
                   </div>
                   {/* Progress bar */}
-                  <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                  <div className="h-3 overflow-hidden border-2 border-border bg-muted">
                     <div
-                      className="h-full rounded-full transition-all"
+                      className="h-full transition-all"
                       style={{
                         width: `${(taskGroup.totalTime / maxTaskTime) * 100}%`,
                         backgroundColor: taskGroup.project_color,
@@ -139,7 +143,7 @@ export default function Today() {
 
           {/* Detailed entries */}
           <div className="mt-8">
-            <h2 className="mb-4 text-lg font-medium">Time Entries</h2>
+            <h2 className="mb-4 text-lg font-bold uppercase">Time Entries</h2>
             <div className="space-y-2">
               {entriesByTask
                 .flatMap((taskGroup) =>
@@ -159,8 +163,8 @@ export default function Today() {
                     <Card
                       key={entry.id}
                       className={cn(
-                        "group",
-                        isActive && "border-primary/50 bg-secondary"
+                        "group border-2",
+                        isActive && "bg-accent shadow-none translate-x-[2px] translate-y-[2px]"
                       )}
                     >
                       <CardContent className="flex items-center justify-between p-3">
@@ -168,12 +172,12 @@ export default function Today() {
                           {/* Project color */}
                           <div className="relative">
                             <div
-                              className="h-3 w-3 rounded-full"
+                              className="h-3 w-3"
                               style={{ backgroundColor: entry.project_color }}
                             />
                             {isActive && (
                               <span
-                                className="tracking-pulse absolute inset-0 rounded-full"
+                                className="tracking-pulse absolute inset-0"
                                 style={{ backgroundColor: entry.project_color }}
                               />
                             )}
@@ -182,16 +186,16 @@ export default function Today() {
                           {/* Task info */}
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">
+                              <span className="font-bold uppercase">
                                 {entry.task_name}
                               </span>
                               {isActive && (
-                                <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                                <span className="border border-border bg-background px-1.5 py-0.5 text-xs font-bold uppercase">
                                   Active
                                 </span>
                               )}
                             </div>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground font-mono">
                               {entry.project_name}
                             </span>
                           </div>
@@ -199,26 +203,37 @@ export default function Today() {
 
                         <div className="flex items-center gap-4">
                           {/* Time range */}
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm text-muted-foreground font-mono">
                             {formatTimeRange(entry.start_time, entry.end_time)}
                           </span>
 
                           {/* Duration */}
-                          <span className="min-w-[60px] text-right font-mono text-sm">
+                          <span className="min-w-[70px] text-right font-mono font-bold text-sm">
                             {formatDetailedTime(duration)}
                           </span>
 
-                          {/* Delete button (only for completed entries) */}
-                          {!isActive && (
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-1">
+                            {/* Edit button */}
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                              onClick={() => handleDeleteEntry(entry.id)}
+                              variant="outline"
+                              size="icon-sm"
+                              onClick={() => setEditEntry(entry)}
                             >
-                              <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                              <Pencil className="h-4 w-4" />
                             </Button>
-                          )}
+
+                            {/* Delete button (only for completed entries) */}
+                            {!isActive && (
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                onClick={() => handleDeleteEntry(entry.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -228,7 +243,16 @@ export default function Today() {
           </div>
         </div>
       )}
+
+      {/* Edit Time Entry Dialog */}
+      {editEntry && (
+        <EditTimeEntryDialog
+          open={!!editEntry}
+          onOpenChange={(open) => !open && setEditEntry(null)}
+          entry={editEntry}
+          onUpdate={fetchTodayEntries}
+        />
+      )}
     </div>
   );
 }
-

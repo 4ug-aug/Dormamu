@@ -1,3 +1,4 @@
+import EditTimeEntryDialog from "@/components/EditTimeEntryDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -25,15 +26,17 @@ import {
 } from "@/components/ui/table";
 import { ChartDataPoint, TimeRange, useDashboard } from "@/hooks/useDashboard";
 import { useProjects } from "@/hooks/useProjects";
+import { TimeEntryWithDetails } from "@/stores/timeStore";
 import {
     Calendar,
     ChevronLeft,
     ChevronRight,
     Clock,
+    Pencil,
     Timer,
     TrendingUp,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 function formatDuration(seconds: number): string {
@@ -114,9 +117,11 @@ export default function Dashboard() {
     setTimeRange,
     setCurrentPage,
     totalPages,
+    refreshAll,
   } = useDashboard();
   
   const { projects } = useProjects();
+  const [editEntry, setEditEntry] = useState<TimeEntryWithDetails | null>(null);
 
   // Create chart config from projects
   const chartConfig = useMemo(() => {
@@ -208,7 +213,7 @@ export default function Dashboard() {
               value={timeRange}
               onValueChange={(value) => setTimeRange(value as TimeRange)}
             >
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -284,6 +289,18 @@ export default function Dashboard() {
                     stroke={project.color}
                     strokeWidth={2}
                     stackId="a"
+                    dot={{
+                      fill: project.color,
+                      stroke: "var(--background)",
+                      strokeWidth: 2,
+                      r: 4,
+                    }}
+                    activeDot={{
+                      fill: project.color,
+                      stroke: "var(--border)",
+                      strokeWidth: 2,
+                      r: 6,
+                    }}
                   />
                 ))}
                 <ChartLegend content={<ChartLegendContent />} />
@@ -312,6 +329,7 @@ export default function Dashboard() {
                     <TableHead>Project</TableHead>
                     <TableHead>Time</TableHead>
                     <TableHead className="text-right">Duration</TableHead>
+                    <TableHead className="w-[60px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -321,25 +339,35 @@ export default function Dashboard() {
                       : Math.floor(Date.now() / 1000) - entry.start_time;
                     
                     return (
-                      <TableRow key={entry.id}>
+                      <TableRow key={entry.id} className="group">
                         <TableCell className="font-medium">
                           {formatDate(entry.start_time)}
                         </TableCell>
-                        <TableCell>{entry.task_name}</TableCell>
+                        <TableCell className="font-bold uppercase">{entry.task_name}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div
-                              className="h-2 w-2 rounded-full"
+                              className="h-2 w-2"
                               style={{ backgroundColor: entry.project_color }}
                             />
-                            {entry.project_name}
+                            <span className="font-mono text-sm">{entry.project_name}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="text-muted-foreground font-mono">
                           {formatTimeRange(entry.start_time, entry.end_time)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right font-mono font-bold">
                           {formatDurationLong(duration)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => setEditEntry(entry)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -386,6 +414,16 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Time Entry Dialog */}
+      {editEntry && (
+        <EditTimeEntryDialog
+          open={!!editEntry}
+          onOpenChange={(open) => !open && setEditEntry(null)}
+          entry={editEntry}
+          onUpdate={refreshAll}
+        />
+      )}
     </div>
   );
 }
