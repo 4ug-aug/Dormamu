@@ -5,7 +5,7 @@ import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { useTodayEntries } from "@/hooks/useTodayEntries";
 import { cn } from "@/lib/utils";
 import { TimeEntryWithDetails } from "@/stores/timeStore";
-import { Clock, Pencil, Trash2 } from "lucide-react";
+import { Clock, FileText, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -184,7 +184,7 @@ export default function Today() {
                           </div>
 
                           {/* Task info */}
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="font-bold uppercase">
                                 {entry.task_name}
@@ -198,6 +198,13 @@ export default function Today() {
                             <span className="text-xs text-muted-foreground font-mono">
                               {entry.project_name}
                             </span>
+                            {/* Note preview */}
+                            {entry.note && (
+                              <div className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
+                                <FileText className="h-3 w-3 mt-0.5 shrink-0" />
+                                <span className="line-clamp-1">{entry.note}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 

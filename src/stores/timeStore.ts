@@ -11,6 +11,9 @@ export interface Task {
   id: string;
   project_id: string;
   name: string;
+  description: string | null;
+  completed: boolean;
+  completed_at: number | null;
   created_at: number;
 }
 
@@ -18,6 +21,9 @@ export interface TaskWithProject {
   id: string;
   project_id: string;
   name: string;
+  description: string | null;
+  completed: boolean;
+  completed_at: number | null;
   created_at: number;
   project_name: string;
   project_color: string;
@@ -39,6 +45,15 @@ export interface TimeEntryWithDetails {
   project_color: string;
   start_time: number;
   end_time: number | null;
+  note: string | null;
+}
+
+export interface Note {
+  id: string;
+  time_entry_id: string;
+  content: string;
+  created_at: number;
+  updated_at: number;
 }
 
 interface TimeStore {
@@ -47,6 +62,9 @@ interface TimeStore {
   tasks: TaskWithProject[];
   todayEntries: TimeEntryWithDetails[];
   activeEntry: TimeEntryWithDetails | null;
+  
+  // Session note dialog state
+  pendingNoteEntryId: string | null;
   
   // UI state
   isTracking: boolean;
@@ -59,10 +77,11 @@ interface TimeStore {
   setActiveEntry: (entry: TimeEntryWithDetails | null) => void;
   setIsTracking: (isTracking: boolean) => void;
   setElapsedTime: (time: number) => void;
+  setPendingNoteEntryId: (id: string | null) => void;
   
   // Helpers
   startTracking: (entry: TimeEntryWithDetails) => void;
-  stopTracking: () => void;
+  stopTracking: (entryId?: string) => void;
 }
 
 export const useTimeStore = create<TimeStore>((set) => ({
@@ -71,6 +90,7 @@ export const useTimeStore = create<TimeStore>((set) => ({
   tasks: [],
   todayEntries: [],
   activeEntry: null,
+  pendingNoteEntryId: null,
   isTracking: false,
   elapsedTime: 0,
   
@@ -81,6 +101,7 @@ export const useTimeStore = create<TimeStore>((set) => ({
   setActiveEntry: (entry) => set({ activeEntry: entry, isTracking: entry !== null }),
   setIsTracking: (isTracking) => set({ isTracking }),
   setElapsedTime: (elapsedTime) => set({ elapsedTime }),
+  setPendingNoteEntryId: (pendingNoteEntryId) => set({ pendingNoteEntryId }),
   
   // Helpers
   startTracking: (entry) => set({ 
@@ -88,10 +109,11 @@ export const useTimeStore = create<TimeStore>((set) => ({
     isTracking: true,
     elapsedTime: Math.floor(Date.now() / 1000) - entry.start_time
   }),
-  stopTracking: () => set({ 
+  stopTracking: (entryId) => set({ 
     activeEntry: null, 
     isTracking: false,
-    elapsedTime: 0
+    elapsedTime: 0,
+    pendingNoteEntryId: entryId || null
   }),
 }));
 

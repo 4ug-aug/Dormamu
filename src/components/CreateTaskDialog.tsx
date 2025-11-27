@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ export default function CreateTaskDialog({
   const { projects } = useProjects();
   const { createTask } = useTasks();
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState(projectId || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -54,9 +56,16 @@ export default function CreateTaskDialog({
 
     setIsSubmitting(true);
     try {
-      await createTask(selectedProjectId, name.trim(), project.name, project.color);
+      await createTask(
+        selectedProjectId, 
+        name.trim(), 
+        project.name, 
+        project.color,
+        description.trim() || undefined
+      );
       toast.success("Task created");
       setName("");
+      setDescription("");
       onOpenChange(false);
     } catch (err) {
       toast.error("Failed to create task");
@@ -108,6 +117,16 @@ export default function CreateTaskDialog({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Design mockups"
                 autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What needs to be done?"
+                rows={3}
               />
             </div>
           </div>

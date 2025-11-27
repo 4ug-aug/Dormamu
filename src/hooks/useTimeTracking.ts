@@ -7,9 +7,11 @@ export function useTimeTracking() {
     activeEntry,
     isTracking,
     elapsedTime,
+    pendingNoteEntryId,
     setElapsedTime,
     startTracking: setTrackingState,
     stopTracking: clearTrackingState,
+    setPendingNoteEntryId,
   } = useTimeStore();
   
   const timerRef = useRef<number | null>(null);
@@ -39,6 +41,7 @@ export function useTimeTracking() {
           project_id: projectId,
           project_name: projectName,
           project_color: projectColor,
+          note: null,
         };
         setTrackingState(entryWithDetails);
         return entry;
@@ -50,16 +53,26 @@ export function useTimeTracking() {
     [setTrackingState]
   );
 
-  // Stop tracking
+  // Stop tracking - returns the stopped entry for note dialog
   const stopTracking = useCallback(async () => {
     try {
-      await invoke<TimeEntry | null>("stop_tracking");
-      clearTrackingState();
+      const stoppedEntry = await invoke<TimeEntryWithDetails | null>("stop_tracking");
+      if (stoppedEntry) {
+        clearTrackingState(stoppedEntry.id);
+      } else {
+        clearTrackingState();
+      }
+      return stoppedEntry;
     } catch (err) {
       console.error("Failed to stop tracking:", err);
       throw err;
     }
   }, [clearTrackingState]);
+
+  // Clear the pending note dialog
+  const clearPendingNote = useCallback(() => {
+    setPendingNoteEntryId(null);
+  }, [setPendingNoteEntryId]);
 
   // Timer effect
   useEffect(() => {
@@ -92,9 +105,11 @@ export function useTimeTracking() {
     activeEntry,
     isTracking,
     elapsedTime,
+    pendingNoteEntryId,
     startTracking,
     stopTracking,
     fetchActiveEntry,
+    clearPendingNote,
   };
 }
 

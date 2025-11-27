@@ -1,6 +1,6 @@
 import ActiveTimer from "@/components/ActiveTimer";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Clock, LayoutGrid } from "lucide-react";
+import { BarChart3, CheckSquare, Clock, LayoutGrid } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 export default function Layout() {
@@ -18,6 +18,15 @@ export default function Layout() {
             >
               <LayoutGrid className="h-4 w-4" />
               Tasks
+            </Button>
+          </NavLink>
+          <NavLink to="/todo">
+            <Button
+              variant={location.pathname === "/todo" ? "default" : "outline"}
+              size="sm"
+            >
+              <CheckSquare className="h-4 w-4" />
+              To-Do
             </Button>
           </NavLink>
           <NavLink to="/today">

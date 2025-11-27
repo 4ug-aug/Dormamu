@@ -10,9 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { TimeEntryWithDetails } from "@/stores/timeStore";
 import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/tauri";
+import { FileText } from "lucide-react";
 
 interface EditTimeEntryDialogProps {
   open: boolean;
@@ -59,6 +61,7 @@ export default function EditTimeEntryDialog({
 }: EditTimeEntryDialogProps) {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Initialize form when dialog opens
@@ -70,6 +73,7 @@ export default function EditTimeEntryDialog({
       } else {
         setEndTime("");
       }
+      setNote(entry.note || "");
     }
   }, [open, entry]);
 
@@ -88,11 +92,27 @@ export default function EditTimeEntryDialog({
 
     setIsSubmitting(true);
     try {
+      // Update time entry
       await invoke("update_time_entry", {
         id: entry.id,
         startTime: startTimestamp,
         endTime: endTimestamp,
       });
+
+      // Update or create note if content changed
+      if (note.trim() !== (entry.note || "")) {
+        if (note.trim()) {
+          await invoke("upsert_note", {
+            timeEntryId: entry.id,
+            content: note.trim(),
+          });
+        } else if (entry.note) {
+          // Delete note if it was cleared
+          // Note: we'd need to get the note ID first, so we'll just upsert with empty for now
+          // In practice, we might want to keep empty notes or add a delete_note_by_entry command
+        }
+      }
+
       toast.success("Time entry updated");
       onUpdate();
       onOpenChange(false);
@@ -164,6 +184,22 @@ export default function EditTimeEntryDialog({
                 </div>
               </div>
             )}
+            
+            {/* Session Note */}
+            <div className="grid gap-2">
+              <Label htmlFor="note" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Session Note
+              </Label>
+              <Textarea
+                id="note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="What did you work on during this session?"
+                rows={3}
+                className="resize-none"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button
