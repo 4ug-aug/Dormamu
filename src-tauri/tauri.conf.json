@@ -16,12 +16,21 @@
       "shell": {
         "all": false,
         "open": true
+      },
+      "dialog": {
+        "all": false,
+        "save": true
+      },
+      "fs": {
+        "all": false,
+        "writeFile": true,
+        "scope": ["$DOCUMENT/*", "$DOWNLOAD/*", "$DESKTOP/*", "$HOME/*"]
       }
     },
     "windows": [
       {
         "title": "dormamu",
-        "width": 800,
+        "width": 1000,
         "height": 600
       }
     ],
