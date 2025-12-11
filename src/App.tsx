@@ -1,9 +1,9 @@
-import { Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
+import Dashboard from "@/pages/Dashboard";
 import Home from "@/pages/Home";
 import Today from "@/pages/Today";
-import Dashboard from "@/pages/Dashboard";
-import Todo from "@/pages/Todo";
+import { Route, Routes } from "react-router-dom";
+
 import Layout from "@/components/Layout";
 import SessionNoteDialog from "@/components/SessionNoteDialog";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
@@ -17,7 +17,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
           <Route path="/today" element={<Today />} />
-          <Route path="/todo" element={<Todo />} />
+
           <Route path="/dashboard" element={<Dashboard />} />
         </Route>
       </Routes>

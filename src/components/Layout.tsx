@@ -1,17 +1,17 @@
 import ActiveTimer from "@/components/ActiveTimer";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TimeEntryWithDetails } from "@/stores/timeStore";
 import { save } from "@tauri-apps/api/dialog";
 import { writeTextFile } from "@tauri-apps/api/fs";
 import { invoke } from "@tauri-apps/api/tauri";
-import { BarChart3, CheckSquare, Clipboard, Clock, Download, LayoutGrid, MoreVertical } from "lucide-react";
+import { BarChart3, Clipboard, Clock, Download, LayoutGrid, MoreVertical } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -170,15 +170,7 @@ export default function Layout() {
               Tasks
             </Button>
           </NavLink>
-          <NavLink to="/todo">
-            <Button
-              variant={location.pathname === "/todo" ? "default" : "outline"}
-              size="sm"
-            >
-              <CheckSquare className="h-4 w-4" />
-              To-Do
-            </Button>
-          </NavLink>
+
           <NavLink to="/today">
             <Button
               variant={location.pathname === "/today" ? "default" : "outline"}
