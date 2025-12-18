@@ -44,79 +44,87 @@ pub struct AsanaTaskImport {
 
 /// Fetches workspaces from Asana API
 #[tauri::command]
-pub fn fetch_asana_workspaces(api_key: String) -> Result<Vec<AsanaWorkspace>, String> {
-    let client = Client::new();
+pub async fn fetch_asana_workspaces(api_key: String) -> Result<Vec<AsanaWorkspace>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let client = Client::new();
 
-    let response = client
-        .get("https://app.asana.com/api/1.0/workspaces")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Accept", "application/json")
-        .send()
-        .map_err(|e| format!("Failed to connect to Asana: {}", e))?;
+        let response = client
+            .get("https://app.asana.com/api/1.0/workspaces")
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Accept", "application/json")
+            .send()
+            .map_err(|e| format!("Failed to connect to Asana: {}", e))?;
 
-    if !response.status().is_success() {
-        return Err(format!(
-            "Asana API error: {} - Check your access token",
-            response.status()
-        ));
-    }
+        if !response.status().is_success() {
+            return Err(format!(
+                "Asana API error: {} - Check your access token",
+                response.status()
+            ));
+        }
 
-    let data: AsanaResponse<Vec<AsanaWorkspace>> = response
-        .json()
-        .map_err(|e| format!("Failed to parse Asana response: {}", e))?;
+        let data: AsanaResponse<Vec<AsanaWorkspace>> = response
+            .json()
+            .map_err(|e| format!("Failed to parse Asana response: {}", e))?;
 
-    Ok(data.data)
+        Ok(data.data)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Fetches tasks assigned to the authenticated user in a workspace
 #[tauri::command]
-pub fn fetch_asana_tasks(api_key: String, workspace_id: String) -> Result<Vec<AsanaTask>, String> {
-    let client = Client::new();
+pub async fn fetch_asana_tasks(api_key: String, workspace_id: String) -> Result<Vec<AsanaTask>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let client = Client::new();
 
-    // First get the user's ID (me)
-    let me_response = client
-        .get("https://app.asana.com/api/1.0/users/me")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Accept", "application/json")
-        .send()
-        .map_err(|e| format!("Failed to get user info: {}", e))?;
+        // First get the user's ID (me)
+        let me_response = client
+            .get("https://app.asana.com/api/1.0/users/me")
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Accept", "application/json")
+            .send()
+            .map_err(|e| format!("Failed to get user info: {}", e))?;
 
-    if !me_response.status().is_success() {
-        return Err(format!("Failed to authenticate: {}", me_response.status()));
-    }
+        if !me_response.status().is_success() {
+            return Err(format!("Failed to authenticate: {}", me_response.status()));
+        }
 
-    #[derive(Deserialize)]
-    struct UserData {
-        gid: String,
-    }
+        #[derive(Deserialize)]
+        struct UserData {
+            gid: String,
+        }
 
-    let user: AsanaResponse<UserData> = me_response
-        .json()
-        .map_err(|e| format!("Failed to parse user response: {}", e))?;
+        let user: AsanaResponse<UserData> = me_response
+            .json()
+            .map_err(|e| format!("Failed to parse user response: {}", e))?;
 
-    // Fetch tasks assigned to this user in the workspace
-    let url = format!(
-        "https://app.asana.com/api/1.0/tasks?workspace={}&assignee={}&opt_fields=name,notes,completed,projects.name,projects.color&completed_since=now",
-        workspace_id, user.data.gid
-    );
+        // Fetch tasks assigned to this user in the workspace
+        let url = format!(
+            "https://app.asana.com/api/1.0/tasks?workspace={}&assignee={}&opt_fields=name,notes,completed,projects.name,projects.color&completed_since=now",
+            workspace_id, user.data.gid
+        );
 
-    let response = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Accept", "application/json")
-        .send()
-        .map_err(|e| format!("Failed to fetch tasks: {}", e))?;
+        let response = client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Accept", "application/json")
+            .send()
+            .map_err(|e| format!("Failed to fetch tasks: {}", e))?;
 
-    if !response.status().is_success() {
-        return Err(format!("Failed to fetch tasks: {}", response.status()));
-    }
+        if !response.status().is_success() {
+            return Err(format!("Failed to fetch tasks: {}", response.status()));
+        }
 
-    let data: AsanaResponse<Vec<AsanaTask>> = response
-        .json()
-        .map_err(|e| format!("Failed to parse tasks: {}", e))?;
+        let data: AsanaResponse<Vec<AsanaTask>> = response
+            .json()
+            .map_err(|e| format!("Failed to parse tasks: {}", e))?;
 
-    // Filter to incomplete tasks
-    Ok(data.data.into_iter().filter(|t| !t.completed).collect())
+        // Filter to incomplete tasks
+        Ok(data.data.into_iter().filter(|t| !t.completed).collect())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Imports selected Asana tasks into local database
@@ -207,4 +215,130 @@ fn asana_color_to_hex(color: &str) -> String {
         "light-warm-gray" => "#B0BEC5".to_string(),
         _ => "#6366f1".to_string(), // Default indigo
     }
+}
+
+/// Time entry data for syncing to Asana
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AsanaSyncableEntry {
+    pub id: String,
+    pub task_name: String,
+    pub project_name: String,
+    pub asana_task_id: String,
+    pub start_time: i64,
+    pub end_time: i64,
+    pub note: Option<String>,
+}
+
+/// Gets time entries that can be synced to Asana (from tasks with asana_task_id)
+#[tauri::command]
+pub fn get_asana_syncable_entries(state: State<DbState>) -> Result<Vec<AsanaSyncableEntry>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT te.id, t.name, p.name, t.asana_task_id, te.start_time, te.end_time, n.content
+             FROM time_entries te
+             JOIN tasks t ON te.task_id = t.id
+             JOIN projects p ON t.project_id = p.id
+             LEFT JOIN notes n ON te.id = n.time_entry_id
+             WHERE t.asana_task_id IS NOT NULL
+             AND te.end_time IS NOT NULL
+             ORDER BY te.start_time DESC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let entries = stmt
+        .query_map([], |row| {
+            Ok(AsanaSyncableEntry {
+                id: row.get(0)?,
+                task_name: row.get(1)?,
+                project_name: row.get(2)?,
+                asana_task_id: row.get(3)?,
+                start_time: row.get(4)?,
+                end_time: row.get(5)?,
+                note: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(entries)
+}
+
+/// Syncs selected time entries to Asana using the time_tracking_entries API
+#[tauri::command]
+pub async fn sync_entries_to_asana(
+    state: State<'_, DbState>,
+    api_key: String,
+    entry_ids: Vec<String>,
+) -> Result<i32, String> {
+    // First, collect all the data we need from the database
+    let entries_data: Vec<(String, i64, i64)> = {
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        let mut data = Vec::new();
+        
+        for entry_id in &entry_ids {
+            let entry: Option<(String, i64, i64)> = conn
+                .query_row(
+                    "SELECT t.asana_task_id, te.start_time, te.end_time
+                     FROM time_entries te
+                     JOIN tasks t ON te.task_id = t.id
+                     WHERE te.id = ?1 AND t.asana_task_id IS NOT NULL AND te.end_time IS NOT NULL",
+                    [entry_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .ok();
+            if let Some(e) = entry {
+                data.push(e);
+            }
+        }
+        data
+    };
+
+    // Now do the HTTP calls in a blocking task
+    tauri::async_runtime::spawn_blocking(move || {
+        let client = Client::new();
+        let mut synced_count = 0;
+
+        for (asana_task_id, start_time, end_time) in entries_data {
+            let duration_seconds = end_time - start_time;
+            let duration_minutes = (duration_seconds / 60).max(1);
+
+            let entered_on = chrono::DateTime::from_timestamp(start_time, 0)
+                .unwrap_or_default()
+                .format("%Y-%m-%d")
+                .to_string();
+
+            let payload = serde_json::json!({
+                "data": {
+                    "duration_minutes": duration_minutes,
+                    "entered_on": entered_on
+                }
+            });
+
+            let url = format!(
+                "https://app.asana.com/api/1.0/tasks/{}/time_tracking_entries",
+                asana_task_id
+            );
+
+            let response = client
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", api_key))
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .json(&payload)
+                .send();
+
+            match response {
+                Ok(resp) if resp.status().is_success() => synced_count += 1,
+                Ok(resp) => eprintln!("Failed to sync: {}", resp.status()),
+                Err(e) => eprintln!("Request failed: {}", e),
+            }
+        }
+
+        Ok(synced_count)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

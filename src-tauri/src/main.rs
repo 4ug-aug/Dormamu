@@ -70,6 +70,8 @@ fn main() {
             commands::fetch_asana_workspaces,
             commands::fetch_asana_tasks,
             commands::import_asana_tasks,
+            commands::get_asana_syncable_entries,
+            commands::sync_entries_to_asana,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

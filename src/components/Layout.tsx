@@ -1,5 +1,6 @@
 import ActiveTimer from "@/components/ActiveTimer";
 import AsanaImportDialog from "@/components/AsanaImportDialog";
+import AsanaSyncDialog from "@/components/AsanaSyncDialog";
 import PaymoImportDialog from "@/components/PaymoImportDialog";
 import PaymoSyncDialog from "@/components/PaymoSyncDialog";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export default function Layout() {
   const [paymoDialogOpen, setPaymoDialogOpen] = useState(false);
   const [paymoSyncDialogOpen, setPaymoSyncDialogOpen] = useState(false);
   const [asanaDialogOpen, setAsanaDialogOpen] = useState(false);
+  const [asanaSyncDialogOpen, setAsanaSyncDialogOpen] = useState(false);
 
   const handleDownloadCSV = async () => {
     try {
@@ -232,6 +234,10 @@ export default function Layout() {
                 <Trello className="mr-2 h-4 w-4" />
                 Import from Asana
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setAsanaSyncDialogOpen(true)}>
+                <CloudUpload className="mr-2 h-4 w-4" />
+                Sync to Asana
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -246,6 +252,10 @@ export default function Layout() {
           <AsanaImportDialog
             open={asanaDialogOpen}
             onOpenChange={setAsanaDialogOpen}
+          />
+          <AsanaSyncDialog
+            open={asanaSyncDialogOpen}
+            onOpenChange={setAsanaSyncDialogOpen}
           />
         </div>
       </header>
