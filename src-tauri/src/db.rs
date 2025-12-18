@@ -81,6 +81,15 @@ pub fn init_database(conn: &Connection) -> SqliteResult<()> {
         conn.execute("ALTER TABLE tasks ADD COLUMN completed_at INTEGER", [])?;
     }
 
+    // Migration: Add paymo_task_id column for Paymo sync
+    let has_paymo_task_id: bool = conn
+        .prepare("SELECT paymo_task_id FROM tasks LIMIT 1")
+        .is_ok();
+    
+    if !has_paymo_task_id {
+        conn.execute("ALTER TABLE tasks ADD COLUMN paymo_task_id INTEGER", [])?;
+    }
+
     Ok(())
 }
 

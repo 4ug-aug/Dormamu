@@ -188,13 +188,13 @@ pub fn import_paymo_tasks(
             project_id
         };
 
-        // Create the task
+        // Create the task with paymo_task_id for sync support
         let task_id = Uuid::new_v4().to_string();
         let created_at = Local::now().timestamp();
 
         conn.execute(
-            "INSERT INTO tasks (id, project_id, name, description, completed, created_at) VALUES (?1, ?2, ?3, ?4, 0, ?5)",
-            (&task_id, &local_project_id, &import.task.name, &import.task.description, &created_at),
+            "INSERT INTO tasks (id, project_id, name, description, completed, created_at, paymo_task_id) VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6)",
+            (&task_id, &local_project_id, &import.task.name, &import.task.description, &created_at, &import.task.id),
         )
         .map_err(|e| e.to_string())?;
 
@@ -202,4 +202,122 @@ pub fn import_paymo_tasks(
     }
 
     Ok(imported_count)
+}
+
+/// Time entry data for syncing to Paymo
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SyncableEntry {
+    pub id: String,
+    pub task_name: String,
+    pub project_name: String,
+    pub paymo_task_id: i64,
+    pub start_time: i64,
+    pub end_time: i64,
+    pub note: Option<String>,
+}
+
+/// Gets time entries that can be synced to Paymo (from tasks with paymo_task_id)
+#[tauri::command]
+pub fn get_syncable_entries(state: State<DbState>) -> Result<Vec<SyncableEntry>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT te.id, t.name, p.name, t.paymo_task_id, te.start_time, te.end_time, n.content
+             FROM time_entries te
+             JOIN tasks t ON te.task_id = t.id
+             JOIN projects p ON t.project_id = p.id
+             LEFT JOIN notes n ON te.id = n.time_entry_id
+             WHERE t.paymo_task_id IS NOT NULL
+             AND te.end_time IS NOT NULL
+             ORDER BY te.start_time DESC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let entries = stmt
+        .query_map([], |row| {
+            Ok(SyncableEntry {
+                id: row.get(0)?,
+                task_name: row.get(1)?,
+                project_name: row.get(2)?,
+                paymo_task_id: row.get(3)?,
+                start_time: row.get(4)?,
+                end_time: row.get(5)?,
+                note: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(entries)
+}
+
+/// Syncs selected time entries to Paymo
+#[tauri::command]
+pub fn sync_entries_to_paymo(
+    state: State<DbState>,
+    api_key: String,
+    entry_ids: Vec<String>,
+) -> Result<i32, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let client = Client::new();
+    let mut synced_count = 0;
+
+    for entry_id in entry_ids {
+        // Get entry details with paymo_task_id
+        let entry: Option<(i64, i64, i64, Option<String>)> = conn
+            .query_row(
+                "SELECT t.paymo_task_id, te.start_time, te.end_time, n.content
+                 FROM time_entries te
+                 JOIN tasks t ON te.task_id = t.id
+                 LEFT JOIN notes n ON te.id = n.time_entry_id
+                 WHERE te.id = ?1 AND t.paymo_task_id IS NOT NULL AND te.end_time IS NOT NULL",
+                [&entry_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .ok();
+
+        if let Some((paymo_task_id, start_time, end_time, note)) = entry {
+            // Convert Unix timestamps to ISO 8601
+            let start_dt = chrono::DateTime::from_timestamp(start_time, 0)
+                .unwrap_or_default()
+                .format("%Y-%m-%dT%H:%M:%SZ")
+                .to_string();
+            let end_dt = chrono::DateTime::from_timestamp(end_time, 0)
+                .unwrap_or_default()
+                .format("%Y-%m-%dT%H:%M:%SZ")
+                .to_string();
+
+            // Build JSON payload
+            let mut payload = serde_json::json!({
+                "task_id": paymo_task_id,
+                "start_time": start_dt,
+                "end_time": end_dt,
+            });
+
+            if let Some(description) = note {
+                payload["description"] = serde_json::Value::String(description);
+            }
+
+            // POST to Paymo
+            let response = client
+                .post("https://app.paymoapp.com/api/entries")
+                .basic_auth(&api_key, Some("x"))
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .json(&payload)
+                .send()
+                .map_err(|e| format!("Failed to sync entry: {}", e))?;
+
+            if response.status().is_success() {
+                synced_count += 1;
+            } else {
+                // Continue with other entries even if one fails
+                eprintln!("Failed to sync entry {}: {}", entry_id, response.status());
+            }
+        }
+    }
+
+    Ok(synced_count)
 }

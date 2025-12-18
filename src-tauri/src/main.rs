@@ -64,6 +64,8 @@ fn main() {
             commands::fetch_paymo_tasks,
             commands::import_paymo_projects,
             commands::import_paymo_tasks,
+            commands::get_syncable_entries,
+            commands::sync_entries_to_paymo,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
