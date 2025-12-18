@@ -122,3 +122,10 @@ pub struct AggregatedTimeData {
     pub by_project: Vec<ProjectTimeAggregate>,
     pub by_task: Vec<TaskTimeAggregate>,
 }
+
+// Daily hours for heatmap
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DailyHours {
+    pub date: String,
+    pub hours: f64,
+}

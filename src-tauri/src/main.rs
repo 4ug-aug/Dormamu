@@ -56,6 +56,7 @@ fn main() {
             commands::get_all_entries,
             commands::get_entries_by_range,
             commands::get_aggregated_time,
+            commands::get_daily_hours,
             // Settings commands
             commands::get_setting,
             commands::set_setting,

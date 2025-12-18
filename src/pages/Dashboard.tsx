@@ -1,4 +1,5 @@
 import EditTimeEntryDialog from "@/components/EditTimeEntryDialog";
+import TimeHeatmap from "@/components/TimeHeatmap";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -242,6 +243,19 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Activity Heatmap */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Activity</CardTitle>
+          <CardDescription>
+            Your time tracking activity over the past year
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pb-2">
+          <TimeHeatmap />
+        </CardContent>
+      </Card>
 
       {/* Aggregated Time Breakdown */}
       <Card>

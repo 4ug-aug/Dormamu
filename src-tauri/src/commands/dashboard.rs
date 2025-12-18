@@ -228,3 +228,37 @@ pub fn get_aggregated_time(state: State<DbState>) -> Result<AggregatedTimeData, 
 
     Ok(AggregatedTimeData { by_project, by_task })
 }
+
+#[tauri::command]
+pub fn get_daily_hours(state: State<DbState>, days: i64) -> Result<Vec<crate::models::DailyHours>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let now = Local::now().timestamp();
+
+    // Get hours per day for the specified number of days
+    let mut stmt = conn
+        .prepare(
+            "SELECT 
+                date(te.start_time, 'unixepoch', 'localtime') as date,
+                CAST(SUM(COALESCE(te.end_time, ?1) - te.start_time) AS REAL) / 3600.0 as hours
+             FROM time_entries te
+             WHERE te.start_time >= ?2
+             GROUP BY date
+             ORDER BY date ASC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let start_timestamp = now - (days * 86400);
+
+    let daily_hours = stmt
+        .query_map([&now, &start_timestamp], |row| {
+            Ok(crate::models::DailyHours {
+                date: row.get(0)?,
+                hours: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(daily_hours)
+}
