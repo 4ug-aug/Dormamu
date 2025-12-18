@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/sonner";
 import Dashboard from "@/pages/Dashboard";
+import Focus from "@/pages/Focus";
 import Home from "@/pages/Home";
 import Today from "@/pages/Today";
 import { Route, Routes } from "react-router-dom";
@@ -17,9 +18,9 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
           <Route path="/today" element={<Today />} />
-
           <Route path="/dashboard" element={<Dashboard />} />
         </Route>
+        <Route path="/focus" element={<Focus />} />
       </Routes>
       <Toaster position="bottom-right" />
       

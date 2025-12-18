@@ -1,7 +1,8 @@
-import { Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { useTodayEntries } from "@/hooks/useTodayEntries";
+import { Maximize2, Square } from "lucide-react";
+import { Link } from "react-router-dom";
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -62,6 +63,17 @@ export default function ActiveTimer() {
         {formatTime(elapsedTime)}
       </div>
 
+      {/* Focus Mode button */}
+      <Button
+        variant="outline"
+        size="icon-sm"
+        asChild
+      >
+        <Link to="/focus">
+          <Maximize2 className="h-4 w-4" />
+        </Link>
+      </Button>
+
       {/* Stop button */}
       <Button
         variant="destructive"
@@ -73,3 +85,4 @@ export default function ActiveTimer() {
     </div>
   );
 }
+
