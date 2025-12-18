@@ -2,7 +2,7 @@ use chrono::{Datelike, Local, TimeZone};
 use tauri::State;
 
 use crate::db::DbState;
-use crate::models::{ChartDataPoint, DashboardStats, PaginatedEntries, TimeEntryWithDetails};
+use crate::models::{AggregatedTimeData, ChartDataPoint, DashboardStats, PaginatedEntries, ProjectTimeAggregate, TaskTimeAggregate, TimeEntryWithDetails};
 
 #[tauri::command]
 pub fn get_stats(state: State<DbState>) -> Result<DashboardStats, String> {
@@ -159,3 +159,72 @@ pub fn get_entries_by_range(
     Ok(data_points)
 }
 
+#[tauri::command]
+pub fn get_aggregated_time(state: State<DbState>) -> Result<AggregatedTimeData, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let now = Local::now().timestamp();
+
+    // Get time aggregated by project
+    let mut project_stmt = conn
+        .prepare(
+            "SELECT 
+                p.id as project_id,
+                p.name as project_name,
+                p.color as project_color,
+                SUM(COALESCE(te.end_time, ?1) - te.start_time) as total_duration
+             FROM time_entries te
+             JOIN tasks t ON te.task_id = t.id
+             JOIN projects p ON t.project_id = p.id
+             GROUP BY p.id
+             ORDER BY total_duration DESC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let by_project = project_stmt
+        .query_map([&now], |row| {
+            Ok(ProjectTimeAggregate {
+                project_id: row.get(0)?,
+                project_name: row.get(1)?,
+                project_color: row.get(2)?,
+                total_duration: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    // Get time aggregated by task
+    let mut task_stmt = conn
+        .prepare(
+            "SELECT 
+                t.id as task_id,
+                t.name as task_name,
+                p.id as project_id,
+                p.name as project_name,
+                p.color as project_color,
+                SUM(COALESCE(te.end_time, ?1) - te.start_time) as total_duration
+             FROM time_entries te
+             JOIN tasks t ON te.task_id = t.id
+             JOIN projects p ON t.project_id = p.id
+             GROUP BY t.id
+             ORDER BY total_duration DESC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let by_task = task_stmt
+        .query_map([&now], |row| {
+            Ok(TaskTimeAggregate {
+                task_id: row.get(0)?,
+                task_name: row.get(1)?,
+                project_id: row.get(2)?,
+                project_name: row.get(3)?,
+                project_color: row.get(4)?,
+                total_duration: row.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(AggregatedTimeData { by_project, by_task })
+}

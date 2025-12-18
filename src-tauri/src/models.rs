@@ -96,3 +96,29 @@ pub struct ChartDataPoint {
     pub duration: i64,
 }
 
+// Aggregated time per project
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProjectTimeAggregate {
+    pub project_id: String,
+    pub project_name: String,
+    pub project_color: String,
+    pub total_duration: i64,
+}
+
+// Aggregated time per task
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TaskTimeAggregate {
+    pub task_id: String,
+    pub task_name: String,
+    pub project_id: String,
+    pub project_name: String,
+    pub project_color: String,
+    pub total_duration: i64,
+}
+
+// Container for all aggregated time data
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AggregatedTimeData {
+    pub by_project: Vec<ProjectTimeAggregate>,
+    pub by_task: Vec<TaskTimeAggregate>,
+}

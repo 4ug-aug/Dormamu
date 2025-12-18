@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
 import { TimeEntryWithDetails } from "@/stores/timeStore";
+import { invoke } from "@tauri-apps/api/tauri";
+import { useCallback, useEffect, useState } from "react";
 
 export interface DashboardStats {
   total_time: number;
@@ -22,6 +22,27 @@ export interface ChartDataPoint {
   project_name: string;
   project_color: string;
   duration: number;
+}
+
+export interface ProjectTimeAggregate {
+  project_id: string;
+  project_name: string;
+  project_color: string;
+  total_duration: number;
+}
+
+export interface TaskTimeAggregate {
+  task_id: string;
+  task_name: string;
+  project_id: string;
+  project_name: string;
+  project_color: string;
+  total_duration: number;
+}
+
+export interface AggregatedTimeData {
+  by_project: ProjectTimeAggregate[];
+  by_task: TaskTimeAggregate[];
 }
 
 export type TimeRange = "7d" | "30d" | "90d" | "6m" | "1y";
@@ -50,6 +71,7 @@ export function useDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [entries, setEntries] = useState<PaginatedEntries | null>(null);
+  const [aggregatedTime, setAggregatedTime] = useState<AggregatedTimeData | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -95,6 +117,16 @@ export function useDashboard() {
     }
   }, []);
 
+  const fetchAggregatedTime = useCallback(async () => {
+    try {
+      const result = await invoke<AggregatedTimeData>("get_aggregated_time");
+      setAggregatedTime(result);
+    } catch (err) {
+      console.error("Failed to fetch aggregated time:", err);
+      setError(err as string);
+    }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -102,9 +134,10 @@ export function useDashboard() {
       fetchStats(),
       fetchChartData(timeRange),
       fetchEntries(currentPage),
+      fetchAggregatedTime(),
     ]);
     setIsLoading(false);
-  }, [fetchStats, fetchChartData, fetchEntries, timeRange, currentPage]);
+  }, [fetchStats, fetchChartData, fetchEntries, fetchAggregatedTime, timeRange, currentPage]);
 
   // Handle time range change
   const handleTimeRangeChange = useCallback(
@@ -138,6 +171,7 @@ export function useDashboard() {
     stats,
     chartData,
     entries,
+    aggregatedTime,
     timeRange,
     currentPage,
     isLoading,

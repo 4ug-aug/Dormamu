@@ -9,6 +9,8 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import {
     Select,
     SelectContent,
@@ -24,6 +26,12 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+} from "@/components/ui/tabs";
 import { ChartDataPoint, TimeRange, useDashboard } from "@/hooks/useDashboard";
 import { useProjects } from "@/hooks/useProjects";
 import { TimeEntryWithDetails } from "@/stores/timeStore";
@@ -32,9 +40,12 @@ import {
     ChevronLeft,
     ChevronRight,
     Clock,
+    FolderOpen,
+    ListTodo,
     Pencil,
+    Search,
     Timer,
-    TrendingUp,
+    TrendingUp
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
@@ -118,10 +129,43 @@ export default function Dashboard() {
     setCurrentPage,
     totalPages,
     refreshAll,
+    aggregatedTime,
   } = useDashboard();
   
   const { projects } = useProjects();
   const [editEntry, setEditEntry] = useState<TimeEntryWithDetails | null>(null);
+  const [breakdownSearch, setBreakdownSearch] = useState("");
+
+  // Calculate max duration for progress bars
+  const maxProjectDuration = useMemo(() => {
+    if (!aggregatedTime?.by_project?.length) return 0;
+    return aggregatedTime.by_project[0].total_duration;
+  }, [aggregatedTime]);
+
+  const maxTaskDuration = useMemo(() => {
+    if (!aggregatedTime?.by_task?.length) return 0;
+    return aggregatedTime.by_task[0].total_duration;
+  }, [aggregatedTime]);
+
+  // Filter projects/tasks by search
+  const filteredProjects = useMemo(() => {
+    if (!aggregatedTime?.by_project) return [];
+    if (!breakdownSearch.trim()) return aggregatedTime.by_project;
+    const query = breakdownSearch.toLowerCase();
+    return aggregatedTime.by_project.filter(p => 
+      p.project_name.toLowerCase().includes(query)
+    );
+  }, [aggregatedTime, breakdownSearch]);
+
+  const filteredTasks = useMemo(() => {
+    if (!aggregatedTime?.by_task) return [];
+    if (!breakdownSearch.trim()) return aggregatedTime.by_task;
+    const query = breakdownSearch.toLowerCase();
+    return aggregatedTime.by_task.filter(t => 
+      t.task_name.toLowerCase().includes(query) ||
+      t.project_name.toLowerCase().includes(query)
+    );
+  }, [aggregatedTime, breakdownSearch]);
 
   // Create chart config from projects
   const chartConfig = useMemo(() => {
@@ -198,6 +242,120 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Aggregated Time Breakdown */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Time Breakdown</CardTitle>
+          <CardDescription>
+            Total time spent by project and task
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="projects" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="projects" className="gap-2">
+                <FolderOpen className="h-4 w-4" />
+                By Project
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="gap-2">
+                <ListTodo className="h-4 w-4" />
+                By Task
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search projects and tasks..."
+                value={breakdownSearch}
+                onChange={(e) => setBreakdownSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            <TabsContent value="projects">
+              {filteredProjects.length ? (
+                <div className="space-y-3">
+                  {filteredProjects.map((project) => (
+                    <div key={project.project_id} className="flex items-center gap-3">
+                      <div
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ backgroundColor: project.project_color }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium truncate">
+                            {project.project_name}
+                          </span>
+                          <span className="text-sm font-mono text-muted-foreground ml-2">
+                            {formatDuration(project.total_duration)}
+                          </span>
+                        </div>
+                        <Progress
+                          value={maxProjectDuration > 0 ? (project.total_duration / maxProjectDuration) * 100 : 0}
+                          className="h-2"
+                          style={{ "--progress-color": project.project_color } as React.CSSProperties}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex h-[100px] items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <Timer className="mx-auto h-6 w-6 mb-2" />
+                    <p className="text-sm">No time tracked yet</p>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="tasks">
+              {filteredTasks.length ? (
+                <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                  {filteredTasks.map((task) => (
+                    <div key={task.task_id} className="flex items-center gap-3">
+                      <div
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ backgroundColor: task.project_color }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-sm font-medium truncate block">
+                              {task.task_name}
+                            </span>
+                            <span className="text-xs text-muted-foreground truncate block">
+                              {task.project_name}
+                            </span>
+                          </div>
+                          <span className="text-sm font-mono text-muted-foreground ml-2 shrink-0">
+                            {formatDuration(task.total_duration)}
+                          </span>
+                        </div>
+                        <Progress
+                          value={maxTaskDuration > 0 ? (task.total_duration / maxTaskDuration) * 100 : 0}
+                          className="h-2"
+                          style={{ "--progress-color": task.project_color } as React.CSSProperties}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex h-[100px] items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <Timer className="mx-auto h-6 w-6 mb-2" />
+                    <p className="text-sm">No time tracked yet</p>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       {/* Area Chart */}
       <Card>

@@ -55,12 +55,15 @@ fn main() {
             commands::get_stats,
             commands::get_all_entries,
             commands::get_entries_by_range,
+            commands::get_aggregated_time,
             // Settings commands
             commands::get_setting,
             commands::set_setting,
             // Paymo commands
             commands::fetch_paymo_projects,
+            commands::fetch_paymo_tasks,
             commands::import_paymo_projects,
+            commands::import_paymo_tasks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -11,8 +11,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProjects } from "@/hooks/useProjects";
+import { useTasks } from "@/hooks/useTasks";
 import { invoke } from "@tauri-apps/api/tauri";
-import { CloudDownload, ExternalLink, Key, Loader2 } from "lucide-react";
+import { ArrowLeft, CloudDownload, ExternalLink, Key, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -22,6 +23,21 @@ interface PaymoProject {
   color: string;
   active: boolean;
 }
+
+interface PaymoTask {
+  id: number;
+  name: string;
+  description: string | null;
+  project_id: number;
+  complete: boolean;
+}
+
+interface PaymoTaskImport {
+  task: PaymoTask;
+  project: PaymoProject;
+}
+
+type Step = "api-key" | "projects" | "tasks";
 
 interface PaymoImportDialogProps {
   open: boolean;
@@ -33,14 +49,28 @@ export default function PaymoImportDialog({
   onOpenChange,
 }: PaymoImportDialogProps) {
   const { fetchProjects } = useProjects();
+  const { fetchTasks } = useTasks();
+  
+  // Step management
+  const [step, setStep] = useState<Step>("api-key");
+  
+  // API Key state
   const [apiKey, setApiKey] = useState("");
   const [savedApiKey, setSavedApiKey] = useState<string | null>(null);
   const [isLoadingKey, setIsLoadingKey] = useState(true);
-  const [projects, setProjects] = useState<PaymoProject[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  
+  // Projects state
+  const [projects, setProjects] = useState<PaymoProject[]>([]);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<number>>(new Set());
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  
+  // Tasks state
+  const [tasks, setTasks] = useState<PaymoTask[]>([]);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  
   const [error, setError] = useState<string | null>(null);
 
   // Load saved API key on mount
@@ -50,12 +80,19 @@ export default function PaymoImportDialog({
     }
   }, [open]);
 
-  // Fetch projects when we have an API key
+  // Determine initial step based on API key
   useEffect(() => {
-    if (savedApiKey && open) {
-      fetchPaymoProjects(savedApiKey);
+    if (!isLoadingKey) {
+      if (savedApiKey) {
+        setStep("projects");
+        // Set loading state immediately before async call
+        setIsLoadingProjects(true);
+        fetchPaymoProjects(savedApiKey);
+      } else {
+        setStep("api-key");
+      }
     }
-  }, [savedApiKey, open]);
+  }, [savedApiKey, isLoadingKey]);
 
   const loadApiKey = async () => {
     setIsLoadingKey(true);
@@ -91,7 +128,10 @@ export default function PaymoImportDialog({
     setIsLoadingProjects(true);
     setError(null);
     setProjects([]);
-    setSelectedIds(new Set());
+    setSelectedProjectIds(new Set());
+
+    // Allow React to render the loading state before blocking call
+    await new Promise(resolve => requestAnimationFrame(resolve));
 
     try {
       const result = await invoke<PaymoProject[]>("fetch_paymo_projects", { apiKey: key });
@@ -103,8 +143,34 @@ export default function PaymoImportDialog({
     }
   };
 
+  const fetchPaymoTasks = async () => {
+    if (selectedProjectIds.size === 0 || !savedApiKey) return;
+    
+    setIsLoadingTasks(true);
+    setError(null);
+    setTasks([]);
+    setSelectedTaskIds(new Set());
+
+    // Allow React to render the loading state before blocking call
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    try {
+      const projectIds = Array.from(selectedProjectIds);
+      const result = await invoke<PaymoTask[]>("fetch_paymo_tasks", { 
+        apiKey: savedApiKey,
+        projectIds 
+      });
+      setTasks(result);
+      setStep("tasks");
+    } catch (err) {
+      setError(err as string);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
+
   const toggleProject = (id: number) => {
-    setSelectedIds((prev) => {
+    setSelectedProjectIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -115,24 +181,40 @@ export default function PaymoImportDialog({
     });
   };
 
-  const selectAll = () => {
-    setSelectedIds(new Set(projects.map((p) => p.id)));
+  const toggleTask = (id: number) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
-  const selectNone = () => {
-    setSelectedIds(new Set());
-  };
+  const selectAllProjects = () => setSelectedProjectIds(new Set(projects.map((p) => p.id)));
+  const clearProjects = () => setSelectedProjectIds(new Set());
+  const selectAllTasks = () => setSelectedTaskIds(new Set(tasks.map((t) => t.id)));
+  const clearTasks = () => setSelectedTaskIds(new Set());
 
-  const handleImport = async () => {
-    const selectedProjects = projects.filter((p) => selectedIds.has(p.id));
-    if (selectedProjects.length === 0) return;
+  const handleImportTasks = async () => {
+    const selectedTasks = tasks.filter((t) => selectedTaskIds.has(t.id));
+    if (selectedTasks.length === 0) return;
+
+    // Build task imports with project info
+    const taskImports: PaymoTaskImport[] = selectedTasks.map((task) => {
+      const project = projects.find((p) => p.id === task.project_id)!;
+      return { task, project };
+    });
 
     setIsImporting(true);
     try {
-      await invoke("import_paymo_projects", { projects: selectedProjects });
-      toast.success(`Imported ${selectedProjects.length} project(s)`);
-      fetchProjects(); // Refresh the project list
-      onOpenChange(false);
+      const count = await invoke<number>("import_paymo_tasks", { taskImports });
+      toast.success(`Imported ${count} task(s)`);
+      fetchProjects();
+      fetchTasks();
+      handleClose();
     } catch (err) {
       toast.error(`Failed to import: ${err}`);
     } finally {
@@ -140,23 +222,49 @@ export default function PaymoImportDialog({
     }
   };
 
+  const handleBack = () => {
+    if (step === "tasks") {
+      setStep("projects");
+      setTasks([]);
+      setSelectedTaskIds(new Set());
+    }
+  };
+
   const handleClose = () => {
     setProjects([]);
-    setSelectedIds(new Set());
+    setSelectedProjectIds(new Set());
+    setTasks([]);
+    setSelectedTaskIds(new Set());
     setError(null);
+    setStep(savedApiKey ? "projects" : "api-key");
     onOpenChange(false);
   };
+
+  const getProjectForTask = (task: PaymoTask) => 
+    projects.find((p) => p.id === task.project_id);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px] sm:max-h-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
+            {step === "tasks" && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleBack}
+                className="mr-1"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
             <CloudDownload className="h-5 w-5" />
             Import from Paymo
           </DialogTitle>
           <DialogDescription>
-            Connect your Paymo account to import projects.
+            {step === "api-key" && "Connect your Paymo account to import projects and tasks."}
+            {step === "projects" && "Select projects to browse their tasks."}
+            {step === "tasks" && "Select tasks to import into Dormamu."}
           </DialogDescription>
         </DialogHeader>
 
@@ -164,7 +272,7 @@ export default function PaymoImportDialog({
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : !savedApiKey ? (
+        ) : step === "api-key" ? (
           /* API Key Setup View */
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -209,7 +317,7 @@ export default function PaymoImportDialog({
               </Button>
             </DialogFooter>
           </div>
-        ) : (
+        ) : step === "projects" ? (
           /* Project Selection View */
           <div className="grid gap-4 py-4">
             {isLoadingProjects ? (
@@ -226,6 +334,7 @@ export default function PaymoImportDialog({
                   onClick={() => {
                     setSavedApiKey(null);
                     setApiKey("");
+                    setStep("api-key");
                   }}
                 >
                   Change API Key
@@ -242,22 +351,22 @@ export default function PaymoImportDialog({
                     {projects.length} project(s) available
                   </span>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={selectAll}>
+                    <Button variant="ghost" size="sm" onClick={selectAllProjects}>
                       Select All
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={selectNone}>
+                    <Button variant="ghost" size="sm" onClick={clearProjects}>
                       Clear
                     </Button>
                   </div>
                 </div>
-                <div className="max-h-[300px] overflow-y-auto space-y-2 border rounded-md p-3">
+                <div className="max-h-[250px] overflow-y-auto space-y-2 border rounded-md p-3">
                   {projects.map((project) => (
                     <label
                       key={project.id}
                       className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
                     >
                       <Checkbox
-                        checked={selectedIds.has(project.id)}
+                        checked={selectedProjectIds.has(project.id)}
                         onCheckedChange={() => toggleProject(project.id)}
                       />
                       <div
@@ -275,6 +384,7 @@ export default function PaymoImportDialog({
                     onClick={() => {
                       setSavedApiKey(null);
                       setApiKey("");
+                      setStep("api-key");
                     }}
                   >
                     Change API Key
@@ -289,8 +399,102 @@ export default function PaymoImportDialog({
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleImport}
-                  disabled={selectedIds.size === 0 || isImporting}
+                  onClick={fetchPaymoTasks}
+                  disabled={selectedProjectIds.size === 0 || isLoadingTasks}
+                >
+                  {isLoadingTasks ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading Tasks...
+                    </>
+                  ) : (
+                    `Next: Select Tasks (${selectedProjectIds.size})`
+                  )}
+                </Button>
+              </DialogFooter>
+            )}
+          </div>
+        ) : (
+          /* Task Selection View */
+          <div className="grid gap-4 py-4">
+            {isLoadingTasks ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Loading tasks...</span>
+              </div>
+            ) : error ? (
+              <div className="text-center py-4">
+                <p className="text-destructive text-sm mb-4">{error}</p>
+                <Button variant="outline" size="sm" onClick={handleBack}>
+                  Go Back
+                </Button>
+              </div>
+            ) : tasks.length === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground mb-4">
+                  No incomplete tasks found in selected projects.
+                </p>
+                <Button variant="outline" size="sm" onClick={handleBack}>
+                  Select Different Projects
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    {tasks.length} task(s) available
+                  </span>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={selectAllTasks}>
+                      Select All
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={clearTasks}>
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+                <div className="max-h-[250px] overflow-y-auto space-y-2 border rounded-md p-3">
+                  {tasks.map((task) => {
+                    const project = getProjectForTask(task);
+                    return (
+                      <label
+                        key={task.id}
+                        className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={selectedTaskIds.has(task.id)}
+                          onCheckedChange={() => toggleTask(task.id)}
+                        />
+                        {project && (
+                          <div
+                            className="h-3 w-3 rounded-full shrink-0"
+                            style={{ backgroundColor: project.color }}
+                            title={project.name}
+                          />
+                        )}
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm truncate">{task.name}</span>
+                          {project && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              {project.name}
+                            </span>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {!isLoadingTasks && !error && tasks.length > 0 && (
+              <DialogFooter>
+                <Button variant="ghost" onClick={handleClose}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleImportTasks}
+                  disabled={selectedTaskIds.size === 0 || isImporting}
                 >
                   {isImporting ? (
                     <>
@@ -298,7 +502,7 @@ export default function PaymoImportDialog({
                       Importing...
                     </>
                   ) : (
-                    `Import ${selectedIds.size} Project(s)`
+                    `Import ${selectedTaskIds.size} Task(s)`
                   )}
                 </Button>
               </DialogFooter>
