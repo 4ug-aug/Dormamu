@@ -66,6 +66,10 @@ fn main() {
             commands::import_paymo_tasks,
             commands::get_syncable_entries,
             commands::sync_entries_to_paymo,
+            // Asana commands
+            commands::fetch_asana_workspaces,
+            commands::fetch_asana_tasks,
+            commands::import_asana_tasks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

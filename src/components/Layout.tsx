@@ -1,4 +1,5 @@
 import ActiveTimer from "@/components/ActiveTimer";
+import AsanaImportDialog from "@/components/AsanaImportDialog";
 import PaymoImportDialog from "@/components/PaymoImportDialog";
 import PaymoSyncDialog from "@/components/PaymoSyncDialog";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { TimeEntryWithDetails } from "@/stores/timeStore";
 import { save } from "@tauri-apps/api/dialog";
 import { writeTextFile } from "@tauri-apps/api/fs";
 import { invoke } from "@tauri-apps/api/tauri";
-import { BarChart3, Clipboard, Clock, CloudDownload, CloudUpload, Download, LayoutGrid, MoreVertical } from "lucide-react";
+import { BarChart3, Clipboard, Clock, CloudDownload, CloudUpload, Download, LayoutGrid, MoreVertical, Trello } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -51,6 +52,7 @@ export default function Layout() {
   const location = useLocation();
   const [paymoDialogOpen, setPaymoDialogOpen] = useState(false);
   const [paymoSyncDialogOpen, setPaymoSyncDialogOpen] = useState(false);
+  const [asanaDialogOpen, setAsanaDialogOpen] = useState(false);
 
   const handleDownloadCSV = async () => {
     try {
@@ -225,6 +227,11 @@ export default function Layout() {
                 <CloudUpload className="mr-2 h-4 w-4" />
                 Sync to Paymo
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setAsanaDialogOpen(true)}>
+                <Trello className="mr-2 h-4 w-4" />
+                Import from Asana
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -235,6 +242,10 @@ export default function Layout() {
           <PaymoSyncDialog
             open={paymoSyncDialogOpen}
             onOpenChange={setPaymoSyncDialogOpen}
+          />
+          <AsanaImportDialog
+            open={asanaDialogOpen}
+            onOpenChange={setAsanaDialogOpen}
           />
         </div>
       </header>

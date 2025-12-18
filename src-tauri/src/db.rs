@@ -90,6 +90,15 @@ pub fn init_database(conn: &Connection) -> SqliteResult<()> {
         conn.execute("ALTER TABLE tasks ADD COLUMN paymo_task_id INTEGER", [])?;
     }
 
+    // Migration: Add asana_task_id column for Asana sync
+    let has_asana_task_id: bool = conn
+        .prepare("SELECT asana_task_id FROM tasks LIMIT 1")
+        .is_ok();
+    
+    if !has_asana_task_id {
+        conn.execute("ALTER TABLE tasks ADD COLUMN asana_task_id TEXT", [])?;
+    }
+
     Ok(())
 }
 

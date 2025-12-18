@@ -5,6 +5,7 @@ pub mod notes;
 pub mod dashboard;
 pub mod settings;
 pub mod paymo;
+pub mod asana;
 
 // Re-export all commands for easier access
 pub use projects::*;
@@ -14,3 +15,4 @@ pub use notes::*;
 pub use dashboard::*;
 pub use settings::*;
 pub use paymo::*;
+pub use asana::*;
