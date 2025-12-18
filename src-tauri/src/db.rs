@@ -60,6 +60,15 @@ pub fn init_database(conn: &Connection) -> SqliteResult<()> {
         [],
     )?;
 
+    // Settings table for app configuration (e.g., Paymo API key)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )",
+        [],
+    )?;
+
     // Migration: Add new columns to existing tasks table if they don't exist
     // Check if description column exists
     let has_description: bool = conn
