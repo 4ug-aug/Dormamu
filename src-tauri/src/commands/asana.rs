@@ -243,6 +243,7 @@ pub fn get_asana_syncable_entries(state: State<DbState>) -> Result<Vec<AsanaSync
              LEFT JOIN notes n ON te.id = n.time_entry_id
              WHERE t.asana_task_id IS NOT NULL
              AND te.end_time IS NOT NULL
+             AND te.synced_at IS NULL
              ORDER BY te.start_time DESC",
         )
         .map_err(|e| e.to_string())?;
@@ -297,7 +298,7 @@ pub async fn sync_entries_to_asana(
     };
 
     // Now do the HTTP calls in a blocking task
-    tauri::async_runtime::spawn_blocking(move || {
+    let synced_count = tauri::async_runtime::spawn_blocking(move || {
         let client = Client::new();
         let mut synced_count = 0;
 
@@ -337,8 +338,20 @@ pub async fn sync_entries_to_asana(
             }
         }
 
-        Ok(synced_count)
+        synced_count
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+
+    // Mark synced entries in the database
+    let synced_at = chrono::Local::now().timestamp();
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    for entry_id in &entry_ids {
+        conn.execute(
+            "UPDATE time_entries SET synced_at = ?1 WHERE id = ?2",
+            (&synced_at, entry_id),
+        ).ok();
+    }
+
+    Ok(synced_count)
 }

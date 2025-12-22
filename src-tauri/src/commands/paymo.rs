@@ -230,6 +230,7 @@ pub fn get_syncable_entries(state: State<DbState>) -> Result<Vec<SyncableEntry>,
              LEFT JOIN notes n ON te.id = n.time_entry_id
              WHERE t.paymo_task_id IS NOT NULL
              AND te.end_time IS NOT NULL
+             AND te.synced_at IS NULL
              ORDER BY te.start_time DESC",
         )
         .map_err(|e| e.to_string())?;
@@ -311,6 +312,12 @@ pub fn sync_entries_to_paymo(
                 .map_err(|e| format!("Failed to sync entry: {}", e))?;
 
             if response.status().is_success() {
+                // Mark entry as synced
+                let synced_at = chrono::Local::now().timestamp();
+                conn.execute(
+                    "UPDATE time_entries SET synced_at = ?1 WHERE id = ?2",
+                    (&synced_at, &entry_id),
+                ).ok();
                 synced_count += 1;
             } else {
                 // Continue with other entries even if one fails

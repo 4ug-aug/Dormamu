@@ -99,6 +99,15 @@ pub fn init_database(conn: &Connection) -> SqliteResult<()> {
         conn.execute("ALTER TABLE tasks ADD COLUMN asana_task_id TEXT", [])?;
     }
 
+    // Migration: Add synced_at column for tracking synced time entries
+    let has_synced_at: bool = conn
+        .prepare("SELECT synced_at FROM time_entries LIMIT 1")
+        .is_ok();
+    
+    if !has_synced_at {
+        conn.execute("ALTER TABLE time_entries ADD COLUMN synced_at INTEGER", [])?;
+    }
+
     Ok(())
 }
 

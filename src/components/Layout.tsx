@@ -11,13 +11,14 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useIntegrations } from "@/hooks/useIntegrations";
 import { TimeEntryWithDetails } from "@/stores/timeStore";
 import { save } from "@tauri-apps/api/dialog";
 import { writeTextFile } from "@tauri-apps/api/fs";
 import { invoke } from "@tauri-apps/api/tauri";
-import { BarChart3, Clipboard, Clock, CloudDownload, CloudUpload, Download, LayoutGrid, MoreVertical, Trello } from "lucide-react";
+import { BarChart3, Clipboard, Clock, CloudDownload, CloudUpload, Download, LayoutGrid, MoreVertical, Settings, Trello } from "lucide-react";
 import { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 interface PaginatedEntries {
@@ -51,6 +52,8 @@ function formatDuration(seconds: number): string {
 
 export default function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { integrations, refreshIntegrations } = useIntegrations();
   const [paymoDialogOpen, setPaymoDialogOpen] = useState(false);
   const [paymoSyncDialogOpen, setPaymoSyncDialogOpen] = useState(false);
   const [asanaDialogOpen, setAsanaDialogOpen] = useState(false);
@@ -204,7 +207,7 @@ export default function Layout() {
           <ActiveTimer />
           
           {/* Quick Actions Menu */}
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={(open) => open && refreshIntegrations()}>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon-sm">
                 <MoreVertical className="h-4 w-4" />
@@ -220,23 +223,36 @@ export default function Layout() {
                 <Download className="mr-2 h-4 w-4" />
                 Export All Data as CSV
               </DropdownMenuItem>
+              {integrations.paymo.enabled && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setPaymoDialogOpen(true)}>
+                    <CloudDownload className="mr-2 h-4 w-4" />
+                    Import from Paymo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setPaymoSyncDialogOpen(true)}>
+                    <CloudUpload className="mr-2 h-4 w-4" />
+                    Sync to Paymo
+                  </DropdownMenuItem>
+                </>
+              )}
+              {integrations.asana.enabled && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setAsanaDialogOpen(true)}>
+                    <Trello className="mr-2 h-4 w-4" />
+                    Import from Asana
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setAsanaSyncDialogOpen(true)}>
+                    <CloudUpload className="mr-2 h-4 w-4" />
+                    Sync to Asana
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setPaymoDialogOpen(true)}>
-                <CloudDownload className="mr-2 h-4 w-4" />
-                Import from Paymo
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setPaymoSyncDialogOpen(true)}>
-                <CloudUpload className="mr-2 h-4 w-4" />
-                Sync to Paymo
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setAsanaDialogOpen(true)}>
-                <Trello className="mr-2 h-4 w-4" />
-                Import from Asana
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setAsanaSyncDialogOpen(true)}>
-                <CloudUpload className="mr-2 h-4 w-4" />
-                Sync to Asana
+              <DropdownMenuItem onClick={() => navigate("/integrations")}>
+                <Settings className="mr-2 h-4 w-4" />
+                Manage Integrations
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
