@@ -1,17 +1,17 @@
 import EditTaskDialog from "@/components/EditTaskDialog";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTasks } from "@/hooks/useTasks";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { useTodayEntries } from "@/hooks/useTodayEntries";
 import { cn } from "@/lib/utils";
 import { TaskWithProject } from "@/stores/timeStore";
-import { MoreHorizontal, Pencil, Play, Square, Trash2 } from "lucide-react";
+import { Archive, MoreHorizontal, Pencil, Play, Square, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 interface TaskCardProps {
@@ -20,7 +20,7 @@ interface TaskCardProps {
 
 export default function TaskCard({ task }: TaskCardProps) {
   const { activeEntry, isTracking, startTracking, stopTracking } = useTimeTracking();
-  const { deleteTask } = useTasks();
+  const { deleteTask, archiveTask } = useTasks();
   const { fetchTodayEntries } = useTodayEntries();
   const [editOpen, setEditOpen] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
@@ -47,6 +47,13 @@ export default function TaskCard({ task }: TaskCardProps) {
       await stopTracking();
     }
     await deleteTask(task.id);
+  };
+
+  const handleArchive = async () => {
+    if (isActiveTask) {
+      await stopTracking();
+    }
+    await archiveTask(task.id);
   };
 
   return (
@@ -139,6 +146,15 @@ export default function TaskCard({ task }: TaskCardProps) {
               >
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleArchive();
+                }}
+              >
+                <Archive className="mr-2 h-4 w-4" />
+                Archive
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={(e) => {

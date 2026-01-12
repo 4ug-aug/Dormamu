@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/sonner";
+import Archive from "@/pages/Archive";
 import Dashboard from "@/pages/Dashboard";
 import Focus from "@/pages/Focus";
 import Home from "@/pages/Home";
@@ -20,6 +21,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/today" element={<Today />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/archive" element={<Archive />} />
           <Route path="/integrations" element={<Integrations />} />
         </Route>
         <Route path="/focus" element={<Focus />} />

@@ -38,6 +38,9 @@ fn main() {
             commands::get_tasks_by_project,
             commands::toggle_task_completed,
             commands::get_incomplete_tasks,
+            commands::archive_task,
+            commands::unarchive_task,
+            commands::get_archived_tasks,
             // Time entry commands
             commands::start_tracking,
             commands::stop_tracking,

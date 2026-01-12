@@ -17,7 +17,7 @@ pub fn create_task(
     let created_at = Local::now().timestamp();
 
     conn.execute(
-        "INSERT INTO tasks (id, project_id, name, description, completed, completed_at, created_at) VALUES (?1, ?2, ?3, ?4, 0, NULL, ?5)",
+        "INSERT INTO tasks (id, project_id, name, description, completed, completed_at, archived, archived_at, created_at) VALUES (?1, ?2, ?3, ?4, 0, NULL, 0, NULL, ?5)",
         (&id, &project_id, &name, &description, &created_at),
     )
     .map_err(|e| e.to_string())?;
@@ -29,6 +29,8 @@ pub fn create_task(
         description,
         completed: false,
         completed_at: None,
+        archived: false,
+        archived_at: None,
         created_at,
     })
 }
@@ -49,12 +51,13 @@ pub fn update_task(
     .map_err(|e| e.to_string())?;
 
     let mut stmt = conn
-        .prepare("SELECT id, project_id, name, description, completed, completed_at, created_at FROM tasks WHERE id = ?1")
+        .prepare("SELECT id, project_id, name, description, completed, completed_at, archived, archived_at, created_at FROM tasks WHERE id = ?1")
         .map_err(|e| e.to_string())?;
 
     let task = stmt
         .query_row([&id], |row| {
             let completed: i32 = row.get(4)?;
+            let archived: i32 = row.get(6)?;
             Ok(Task {
                 id: row.get(0)?,
                 project_id: row.get(1)?,
@@ -62,7 +65,9 @@ pub fn update_task(
                 description: row.get(3)?,
                 completed: completed != 0,
                 completed_at: row.get(5)?,
-                created_at: row.get(6)?,
+                archived: archived != 0,
+                archived_at: row.get(7)?,
+                created_at: row.get(8)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -98,9 +103,10 @@ pub fn get_tasks(state: State<DbState>) -> Result<Vec<TaskWithProject>, String> 
 
     let mut stmt = conn
         .prepare(
-            "SELECT t.id, t.project_id, t.name, t.description, t.completed, t.completed_at, t.created_at, p.name, p.color
+            "SELECT t.id, t.project_id, t.name, t.description, t.completed, t.completed_at, t.archived, t.archived_at, t.created_at, p.name, p.color
              FROM tasks t
              JOIN projects p ON t.project_id = p.id
+             WHERE t.archived = 0
              ORDER BY t.completed ASC, t.created_at DESC",
         )
         .map_err(|e| e.to_string())?;
@@ -108,6 +114,7 @@ pub fn get_tasks(state: State<DbState>) -> Result<Vec<TaskWithProject>, String> 
     let tasks = stmt
         .query_map([], |row| {
             let completed: i32 = row.get(4)?;
+            let archived: i32 = row.get(6)?;
             Ok(TaskWithProject {
                 id: row.get(0)?,
                 project_id: row.get(1)?,
@@ -115,9 +122,11 @@ pub fn get_tasks(state: State<DbState>) -> Result<Vec<TaskWithProject>, String> 
                 description: row.get(3)?,
                 completed: completed != 0,
                 completed_at: row.get(5)?,
-                created_at: row.get(6)?,
-                project_name: row.get(7)?,
-                project_color: row.get(8)?,
+                archived: archived != 0,
+                archived_at: row.get(7)?,
+                created_at: row.get(8)?,
+                project_name: row.get(9)?,
+                project_color: row.get(10)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -132,12 +141,13 @@ pub fn get_tasks_by_project(state: State<DbState>, project_id: String) -> Result
     let conn = state.0.lock().map_err(|e| e.to_string())?;
 
     let mut stmt = conn
-        .prepare("SELECT id, project_id, name, description, completed, completed_at, created_at FROM tasks WHERE project_id = ?1 ORDER BY completed ASC, created_at DESC")
+        .prepare("SELECT id, project_id, name, description, completed, completed_at, archived, archived_at, created_at FROM tasks WHERE project_id = ?1 AND archived = 0 ORDER BY completed ASC, created_at DESC")
         .map_err(|e| e.to_string())?;
 
     let tasks = stmt
         .query_map([&project_id], |row| {
             let completed: i32 = row.get(4)?;
+            let archived: i32 = row.get(6)?;
             Ok(Task {
                 id: row.get(0)?,
                 project_id: row.get(1)?,
@@ -145,7 +155,9 @@ pub fn get_tasks_by_project(state: State<DbState>, project_id: String) -> Result
                 description: row.get(3)?,
                 completed: completed != 0,
                 completed_at: row.get(5)?,
-                created_at: row.get(6)?,
+                archived: archived != 0,
+                archived_at: row.get(7)?,
+                created_at: row.get(8)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -182,7 +194,7 @@ pub fn toggle_task_completed(state: State<DbState>, id: String) -> Result<TaskWi
     // Return updated task with project info
     let mut stmt = conn
         .prepare(
-            "SELECT t.id, t.project_id, t.name, t.description, t.completed, t.completed_at, t.created_at, p.name, p.color
+            "SELECT t.id, t.project_id, t.name, t.description, t.completed, t.completed_at, t.archived, t.archived_at, t.created_at, p.name, p.color
              FROM tasks t
              JOIN projects p ON t.project_id = p.id
              WHERE t.id = ?1",
@@ -192,6 +204,7 @@ pub fn toggle_task_completed(state: State<DbState>, id: String) -> Result<TaskWi
     let task = stmt
         .query_row([&id], |row| {
             let completed: i32 = row.get(4)?;
+            let archived: i32 = row.get(6)?;
             Ok(TaskWithProject {
                 id: row.get(0)?,
                 project_id: row.get(1)?,
@@ -199,9 +212,11 @@ pub fn toggle_task_completed(state: State<DbState>, id: String) -> Result<TaskWi
                 description: row.get(3)?,
                 completed: completed != 0,
                 completed_at: row.get(5)?,
-                created_at: row.get(6)?,
-                project_name: row.get(7)?,
-                project_color: row.get(8)?,
+                archived: archived != 0,
+                archived_at: row.get(7)?,
+                created_at: row.get(8)?,
+                project_name: row.get(9)?,
+                project_color: row.get(10)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -215,10 +230,10 @@ pub fn get_incomplete_tasks(state: State<DbState>) -> Result<Vec<TaskWithProject
 
     let mut stmt = conn
         .prepare(
-            "SELECT t.id, t.project_id, t.name, t.description, t.completed, t.completed_at, t.created_at, p.name, p.color
+            "SELECT t.id, t.project_id, t.name, t.description, t.completed, t.completed_at, t.archived, t.archived_at, t.created_at, p.name, p.color
              FROM tasks t
              JOIN projects p ON t.project_id = p.id
-             WHERE t.completed = 0
+             WHERE t.completed = 0 AND t.archived = 0
              ORDER BY t.created_at DESC",
         )
         .map_err(|e| e.to_string())?;
@@ -226,6 +241,7 @@ pub fn get_incomplete_tasks(state: State<DbState>) -> Result<Vec<TaskWithProject
     let tasks = stmt
         .query_map([], |row| {
             let completed: i32 = row.get(4)?;
+            let archived: i32 = row.get(6)?;
             Ok(TaskWithProject {
                 id: row.get(0)?,
                 project_id: row.get(1)?,
@@ -233,9 +249,11 @@ pub fn get_incomplete_tasks(state: State<DbState>) -> Result<Vec<TaskWithProject
                 description: row.get(3)?,
                 completed: completed != 0,
                 completed_at: row.get(5)?,
-                created_at: row.get(6)?,
-                project_name: row.get(7)?,
-                project_color: row.get(8)?,
+                archived: archived != 0,
+                archived_at: row.get(7)?,
+                created_at: row.get(8)?,
+                project_name: row.get(9)?,
+                project_color: row.get(10)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -245,3 +263,128 @@ pub fn get_incomplete_tasks(state: State<DbState>) -> Result<Vec<TaskWithProject
     Ok(tasks)
 }
 
+#[tauri::command]
+pub fn archive_task(state: State<DbState>, id: String) -> Result<TaskWithProject, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let archived_at = Local::now().timestamp();
+
+    conn.execute(
+        "UPDATE tasks SET archived = 1, archived_at = ?1 WHERE id = ?2",
+        (&archived_at, &id),
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Return updated task with project info
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.id, t.project_id, t.name, t.description, t.completed, t.completed_at, t.archived, t.archived_at, t.created_at, p.name, p.color
+             FROM tasks t
+             JOIN projects p ON t.project_id = p.id
+             WHERE t.id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let task = stmt
+        .query_row([&id], |row| {
+            let completed: i32 = row.get(4)?;
+            let archived: i32 = row.get(6)?;
+            Ok(TaskWithProject {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                name: row.get(2)?,
+                description: row.get(3)?,
+                completed: completed != 0,
+                completed_at: row.get(5)?,
+                archived: archived != 0,
+                archived_at: row.get(7)?,
+                created_at: row.get(8)?,
+                project_name: row.get(9)?,
+                project_color: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    Ok(task)
+}
+
+#[tauri::command]
+pub fn unarchive_task(state: State<DbState>, id: String) -> Result<TaskWithProject, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "UPDATE tasks SET archived = 0, archived_at = NULL WHERE id = ?1",
+        [&id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Return updated task with project info
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.id, t.project_id, t.name, t.description, t.completed, t.completed_at, t.archived, t.archived_at, t.created_at, p.name, p.color
+             FROM tasks t
+             JOIN projects p ON t.project_id = p.id
+             WHERE t.id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let task = stmt
+        .query_row([&id], |row| {
+            let completed: i32 = row.get(4)?;
+            let archived: i32 = row.get(6)?;
+            Ok(TaskWithProject {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                name: row.get(2)?,
+                description: row.get(3)?,
+                completed: completed != 0,
+                completed_at: row.get(5)?,
+                archived: archived != 0,
+                archived_at: row.get(7)?,
+                created_at: row.get(8)?,
+                project_name: row.get(9)?,
+                project_color: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    Ok(task)
+}
+
+#[tauri::command]
+pub fn get_archived_tasks(state: State<DbState>) -> Result<Vec<TaskWithProject>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.id, t.project_id, t.name, t.description, t.completed, t.completed_at, t.archived, t.archived_at, t.created_at, p.name, p.color
+             FROM tasks t
+             JOIN projects p ON t.project_id = p.id
+             WHERE t.archived = 1
+             ORDER BY t.archived_at DESC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let tasks = stmt
+        .query_map([], |row| {
+            let completed: i32 = row.get(4)?;
+            let archived: i32 = row.get(6)?;
+            Ok(TaskWithProject {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                name: row.get(2)?,
+                description: row.get(3)?,
+                completed: completed != 0,
+                completed_at: row.get(5)?,
+                archived: archived != 0,
+                archived_at: row.get(7)?,
+                created_at: row.get(8)?,
+                project_name: row.get(9)?,
+                project_color: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(tasks)
+}

@@ -14,6 +14,8 @@ export interface Task {
   description: string | null;
   completed: boolean;
   completed_at: number | null;
+  archived: boolean;
+  archived_at: number | null;
   created_at: number;
 }
 
@@ -24,6 +26,8 @@ export interface TaskWithProject {
   description: string | null;
   completed: boolean;
   completed_at: number | null;
+  archived: boolean;
+  archived_at: number | null;
   created_at: number;
   project_name: string;
   project_color: string;

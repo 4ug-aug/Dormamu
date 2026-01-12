@@ -18,6 +18,8 @@ pub struct Task {
     pub description: Option<String>,
     pub completed: bool,
     pub completed_at: Option<i64>,
+    pub archived: bool,
+    pub archived_at: Option<i64>,
     pub created_at: i64,
 }
 
@@ -30,6 +32,8 @@ pub struct TaskWithProject {
     pub description: Option<String>,
     pub completed: bool,
     pub completed_at: Option<i64>,
+    pub archived: bool,
+    pub archived_at: Option<i64>,
     pub created_at: i64,
     pub project_name: String,
     pub project_color: String,

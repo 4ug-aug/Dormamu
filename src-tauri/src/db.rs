@@ -29,6 +29,8 @@ pub fn init_database(conn: &Connection) -> SqliteResult<()> {
             description TEXT,
             completed INTEGER DEFAULT 0,
             completed_at INTEGER,
+            archived INTEGER DEFAULT 0,
+            archived_at INTEGER,
             created_at INTEGER NOT NULL,
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )",
@@ -106,6 +108,16 @@ pub fn init_database(conn: &Connection) -> SqliteResult<()> {
     
     if !has_synced_at {
         conn.execute("ALTER TABLE time_entries ADD COLUMN synced_at INTEGER", [])?;
+    }
+
+    // Migration: Add archived columns for task archiving
+    let has_archived: bool = conn
+        .prepare("SELECT archived FROM tasks LIMIT 1")
+        .is_ok();
+    
+    if !has_archived {
+        conn.execute("ALTER TABLE tasks ADD COLUMN archived INTEGER DEFAULT 0", [])?;
+        conn.execute("ALTER TABLE tasks ADD COLUMN archived_at INTEGER", [])?;
     }
 
     Ok(())

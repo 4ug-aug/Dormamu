@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { Task, TaskWithProject, useTimeStore } from "@/stores/timeStore";
 import { invoke } from "@tauri-apps/api/tauri";
-import { useTimeStore, Task, TaskWithProject } from "@/stores/timeStore";
+import { useCallback, useEffect, useState } from "react";
 
 export function useTasks() {
   const { tasks, setTasks } = useTimeStore();
@@ -102,6 +102,42 @@ export function useTasks() {
     }
   }, []);
 
+  const archiveTask = useCallback(
+    async (id: string) => {
+      try {
+        await invoke<TaskWithProject>("archive_task", { id });
+        setTasks(tasks.filter((t) => t.id !== id));
+      } catch (err) {
+        setError(err as string);
+        throw err;
+      }
+    },
+    [tasks, setTasks]
+  );
+
+  const unarchiveTask = useCallback(
+    async (id: string) => {
+      try {
+        const task = await invoke<TaskWithProject>("unarchive_task", { id });
+        return task;
+      } catch (err) {
+        setError(err as string);
+        throw err;
+      }
+    },
+    []
+  );
+
+  const fetchArchivedTasks = useCallback(async () => {
+    try {
+      const result = await invoke<TaskWithProject[]>("get_archived_tasks");
+      return result;
+    } catch (err) {
+      setError(err as string);
+      throw err;
+    }
+  }, []);
+
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
@@ -116,6 +152,9 @@ export function useTasks() {
     deleteTask,
     toggleTaskCompleted,
     getIncompleteTasks,
+    archiveTask,
+    unarchiveTask,
+    fetchArchivedTasks,
   };
 }
 

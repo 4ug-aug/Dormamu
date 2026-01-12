@@ -16,7 +16,7 @@ import { TimeEntryWithDetails } from "@/stores/timeStore";
 import { save } from "@tauri-apps/api/dialog";
 import { writeTextFile } from "@tauri-apps/api/fs";
 import { invoke } from "@tauri-apps/api/tauri";
-import { BarChart3, Clipboard, Clock, CloudDownload, CloudUpload, Download, LayoutGrid, MoreVertical, Settings, Trello } from "lucide-react";
+import { Archive, BarChart3, Clipboard, Clock, CloudDownload, CloudUpload, Download, LayoutGrid, MoreVertical, Settings, Trello } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -199,6 +199,15 @@ export default function Layout() {
             >
               <BarChart3 className="h-4 w-4" />
               Dashboard
+            </Button>
+          </NavLink>
+          <NavLink to="/archive">
+            <Button
+              variant={location.pathname === "/archive" ? "default" : "outline"}
+              size="sm"
+            >
+              <Archive className="h-4 w-4" />
+              Archive
             </Button>
           </NavLink>
         </nav>
