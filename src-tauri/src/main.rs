@@ -3,6 +3,7 @@
 
 mod commands;
 mod db;
+mod idle;
 mod models;
 
 use db::{init_database, DbState};
@@ -24,6 +25,11 @@ fn main() {
 
     tauri::Builder::default()
         .manage(DbState(Mutex::new(conn)))
+        .setup(|app| {
+            // Start idle detection watcher
+            idle::start_idle_watcher(app.handle());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             // Project commands
             commands::create_project,
@@ -76,6 +82,8 @@ fn main() {
             commands::import_asana_tasks,
             commands::get_asana_syncable_entries,
             commands::sync_entries_to_asana,
+            // Idle detection commands
+            idle::get_idle_seconds,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
